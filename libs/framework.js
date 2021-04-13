@@ -117,7 +117,7 @@ function createContext(width, height) {
   canvas.height = height || 400;
   document.body.appendChild(canvas);
   createHtmlText(canvas);
-  return canvas.getContext('webgl', { premultipliedAlpha: false, alpha: false } );
+  return canvas.getContext('webgl', { premultipliedAlpha: false, alpha: false });
 }
 
 /**
@@ -266,7 +266,7 @@ var glm = (function () {
         r = mat4.rotateZ(r, r, deg2rad(transform.rotateZ));
       }
       if (transform.scale) {
-        r = mat4.scale(r, r, typeof transform.scale === 'number' ?  [transform.scale, transform.scale, transform.scale]: transform.scale);
+        r = mat4.scale(r, r, typeof transform.scale === 'number' ? [transform.scale, transform.scale, transform.scale] : transform.scale);
       }
       return r;
     }
@@ -434,75 +434,69 @@ function parseObjFile(objectData) {
       becomes:
         ['16/92/11', '14/101/22', '1/69/1'];
       */
-      var quad = false;
-      for (var j = 0, eleLen = elements.length; j < eleLen; j++){
-          // Triangulating quads
-          // quad: 'f v0/t0/vn0 v1/t1/vn1 v2/t2/vn2 v3/t3/vn3/'
-          // corresponding triangles:
-          //      'f v0/t0/vn0 v1/t1/vn1 v2/t2/vn2'
-          //      'f v2/t2/vn2 v3/t3/vn3 v0/t0/vn0'
-          if(j === 3 && !quad) {
-              // add v2/t2/vn2 in again before continuing to 3
-              j = 2;
-              quad = true;
+      for (var j = 0, eleLen = elements.length; j < eleLen; j++) {
+        // Triangulating polygons
+        // Triangles are generated in a "fan"-shaped pattern for 
+        // polygons with more than 3 corners.
+        // polygon: 'f v0/t0/vn0 v1/t1/vn1 v2/t2/vn2 v3/t3/vn3/ v4/t4/vn4/'
+        // corresponding triangles:
+        //      'f v0/t0/vn0 v1/t1/vn1 v2/t2/vn2'
+        //      'f v0/t0/vn0 v2/t2/vn2 v3/t3/vn3'
+        //      'f v0/t0/vn0 v3/t3/vn3 v4/t4/vn4'
+        if (!(elements[j] in unpacked.hashindices)) {
+          /*
+          Each element of the face line array is a vertex which has its
+          attributes delimited by a forward slash. This will separate
+          each attribute into another array:
+              '19/92/11'
+          becomes:
+              vertex = ['19', '92', '11'];
+          where
+              vertex[0] is the vertex index
+              vertex[1] is the texture index
+              vertex[2] is the normal index
+           Think of faces having Vertices which are comprised of the
+           attributes location (v), texture (vt), and normal (vn).
+           */
+          var vertex = elements[j].split('/');
+          /*
+           The verts, textures, and vertNormals arrays each contain a
+           flattend array of coordinates.
+           Because it gets confusing by referring to vertex and then
+           vertex (both are different in my descriptions) I will explain
+           what's going on using the vertexNormals array:
+           vertex[2] will contain the one-based index of the vertexNormals
+           section (vn). One is subtracted from this index number to play
+           nice with javascript's zero-based array indexing.
+           Because vertexNormal is a flattened array of x, y, z values,
+           simple pointer arithmetic is used to skip to the start of the
+           vertexNormal, then the offset is added to get the correct
+           component: +0 is x, +1 is y, +2 is z.
+           This same process is repeated for verts and textures.
+           */
+          // vertex position
+          unpacked.verts.push(+verts[(vertex[0] - 1) * 3 + 0]);
+          unpacked.verts.push(+verts[(vertex[0] - 1) * 3 + 1]);
+          unpacked.verts.push(+verts[(vertex[0] - 1) * 3 + 2]);
+          // vertex textures
+          if (textures.length) {
+            unpacked.textures.push(+textures[(vertex[1] - 1) * 2 + 0]);
+            unpacked.textures.push(+textures[(vertex[1] - 1) * 2 + 1]);
           }
-          if(elements[j] in unpacked.hashindices){
-              unpacked.indices.push(unpacked.hashindices[elements[j]]);
-          }
-          else{
-              /*
-              Each element of the face line array is a vertex which has its
-              attributes delimited by a forward slash. This will separate
-              each attribute into another array:
-                  '19/92/11'
-              becomes:
-                  vertex = ['19', '92', '11'];
-              where
-                  vertex[0] is the vertex index
-                  vertex[1] is the texture index
-                  vertex[2] is the normal index
-               Think of faces having Vertices which are comprised of the
-               attributes location (v), texture (vt), and normal (vn).
-               */
-              var vertex = elements[ j ].split( '/' );
-              /*
-               The verts, textures, and vertNormals arrays each contain a
-               flattend array of coordinates.
-               Because it gets confusing by referring to vertex and then
-               vertex (both are different in my descriptions) I will explain
-               what's going on using the vertexNormals array:
-               vertex[2] will contain the one-based index of the vertexNormals
-               section (vn). One is subtracted from this index number to play
-               nice with javascript's zero-based array indexing.
-               Because vertexNormal is a flattened array of x, y, z values,
-               simple pointer arithmetic is used to skip to the start of the
-               vertexNormal, then the offset is added to get the correct
-               component: +0 is x, +1 is y, +2 is z.
-               This same process is repeated for verts and textures.
-               */
-              // vertex position
-              unpacked.verts.push(+verts[(vertex[0] - 1) * 3 + 0]);
-              unpacked.verts.push(+verts[(vertex[0] - 1) * 3 + 1]);
-              unpacked.verts.push(+verts[(vertex[0] - 1) * 3 + 2]);
-              // vertex textures
-              if (textures.length) {
-                unpacked.textures.push(+textures[(vertex[1] - 1) * 2 + 0]);
-                unpacked.textures.push(+textures[(vertex[1] - 1) * 2 + 1]);
-              }
-              // vertex normals
-              unpacked.norms.push(+vertNormals[(vertex[2] - 1) * 3 + 0]);
-              unpacked.norms.push(+vertNormals[(vertex[2] - 1) * 3 + 1]);
-              unpacked.norms.push(+vertNormals[(vertex[2] - 1) * 3 + 2]);
-              // add the newly created vertex to the list of indices
-              unpacked.hashindices[elements[j]] = unpacked.index;
-              unpacked.indices.push(unpacked.index);
-              // increment the counter
-              unpacked.index += 1;
-          }
-          if(j === 3 && quad) {
-              // add v0/t0/vn0 onto the second triangle
-              unpacked.indices.push( unpacked.hashindices[elements[0]]);
-          }
+          // vertex normals
+          unpacked.norms.push(+vertNormals[(vertex[2] - 1) * 3 + 0]);
+          unpacked.norms.push(+vertNormals[(vertex[2] - 1) * 3 + 1]);
+          unpacked.norms.push(+vertNormals[(vertex[2] - 1) * 3 + 2]);
+          // add the newly created vertex to the list of indices
+          unpacked.hashindices[elements[j]] = unpacked.index;
+          // increment the counter
+          unpacked.index += 1;
+        }
+        if (j > 1) {
+          unpacked.indices.push(unpacked.hashindices[elements[0]]);
+          unpacked.indices.push(unpacked.hashindices[elements[j - 1]]);
+          unpacked.indices.push(unpacked.hashindices[elements[j]]);
+        }
       }
     }
   }
@@ -524,10 +518,10 @@ function parseMtlFile(fileContent) {
   var MAP_KD_RE = /^map_Kd\s/;
   var WHITESPACE_RE = /\s+/;
 
-  const materials = { };
+  const materials = {};
   var material = null;
 
-  fileContent.split('\n').forEach(function(line) {
+  fileContent.split('\n').forEach(function (line) {
     line = line.trim();
     const elems = line.split(WHITESPACE_RE);
     elems.shift(); //skip marker
@@ -544,13 +538,13 @@ function parseMtlFile(fileContent) {
     } else if (NS_RE.test(line)) {
       material.shininess = parseFloat(elems[0]);
     } else if (KA_RE.test(line)) {
-      material.ambient = [ parseFloat(elems[0]), parseFloat(elems[1]), parseFloat(elems[2]), 1];
+      material.ambient = [parseFloat(elems[0]), parseFloat(elems[1]), parseFloat(elems[2]), 1];
     } else if (KD_RE.test(line)) {
-      material.diffuse = [ parseFloat(elems[0]), parseFloat(elems[1]), parseFloat(elems[2]), 1];
+      material.diffuse = [parseFloat(elems[0]), parseFloat(elems[1]), parseFloat(elems[2]), 1];
     } else if (KS_RE.test(line)) {
-      material.specular = [ parseFloat(elems[0]), parseFloat(elems[1]), parseFloat(elems[2]), 1];
+      material.specular = [parseFloat(elems[0]), parseFloat(elems[1]), parseFloat(elems[2]), 1];
     } else if (KE_RE.test(line)) {
-      material.emission = [ parseFloat(elems[0]), parseFloat(elems[1]), parseFloat(elems[2]), 1];
+      material.emission = [parseFloat(elems[0]), parseFloat(elems[1]), parseFloat(elems[2]), 1];
     } else if (MAP_KD_RE.test(line)) {
       material.texture = elems[0];
     }
@@ -668,7 +662,7 @@ class TransformationSGNode extends SGNode {
   // For consistency with labs:
   // using .matrix= instead of setMatrix also works!
   setMatrix(matrix) {
-     this.matrix = matrix;
+    this.matrix = matrix;
   }
 }
 
@@ -719,7 +713,7 @@ class SetUniformSGNode extends SGNode {
     const gl = context.gl,
       shader = context.shader;
     const that = this;
-    Object.keys(this.uniforms).forEach(function(key) {
+    Object.keys(this.uniforms).forEach(function (key) {
       const value = that.uniforms[key];
       const loc = gl.getUniformLocation(shader, key);
       if (typeof value === 'number') {
@@ -728,7 +722,7 @@ class SetUniformSGNode extends SGNode {
         gl.uniform1i(loc, value ? 1 : 0);
       } else if (Array.isArray(value)) {
         const l = value.length;
-        const f = gl['uniform'+l+'f']
+        const f = gl['uniform' + l + 'f']
         f.apply(gl, [loc].concat(value));
       }
     });
@@ -745,12 +739,12 @@ class SetUniformSGNode extends SGNode {
 }
 
 class AdvancedTextureSGNode extends SGNode {
-  constructor(image, children ) {
-      super(children);
-      this.image = image;
-      this.textureunit = 0;
-      this.uniform = 'u_tex';
-      this.textureId = -1;
+  constructor(image, children) {
+    super(children);
+    this.image = image;
+    this.textureunit = 0;
+    this.uniform = 'u_tex';
+    this.textureId = -1;
   }
 
   init(gl) {
@@ -916,21 +910,21 @@ class MaterialSGNode extends SGNode {
   setMaterialUniforms(context) {
     const gl = context.gl;
     //no materials in use
-    if (!context.shader || !isValidUniformLocation(gl.getUniformLocation(context.shader, this.uniform+'.ambient'))) {
+    if (!context.shader || !isValidUniformLocation(gl.getUniformLocation(context.shader, this.uniform + '.ambient'))) {
       return;
     }
-    gl.uniform4fv(gl.getUniformLocation(context.shader, this.uniform+'.ambient'), this.ambient);
-    gl.uniform4fv(gl.getUniformLocation(context.shader, this.uniform+'.diffuse'), this.diffuse);
-    gl.uniform4fv(gl.getUniformLocation(context.shader, this.uniform+'.specular'), this.specular);
-    gl.uniform4fv(gl.getUniformLocation(context.shader, this.uniform+'.emission'), this.emission);
-    gl.uniform1f(gl.getUniformLocation(context.shader, this.uniform+'.shininess'), this.shininess);
+    gl.uniform4fv(gl.getUniformLocation(context.shader, this.uniform + '.ambient'), this.ambient);
+    gl.uniform4fv(gl.getUniformLocation(context.shader, this.uniform + '.diffuse'), this.diffuse);
+    gl.uniform4fv(gl.getUniformLocation(context.shader, this.uniform + '.specular'), this.specular);
+    gl.uniform4fv(gl.getUniformLocation(context.shader, this.uniform + '.emission'), this.emission);
+    gl.uniform1f(gl.getUniformLocation(context.shader, this.uniform + '.shininess'), this.shininess);
   }
 
   render(context) {
     this.setMaterialUniforms(context);
 
     //just set the light with the precomputed world position
-    this.lights.forEach(function(l) {
+    this.lights.forEach(function (l) {
       l.setLight(context);
     })
     //render children
@@ -959,28 +953,28 @@ class LightSGNode extends TransformationSGNode {
   setLightUniforms(context) {
     const gl = context.gl;
     //no materials in use
-    if (!context.shader || !isValidUniformLocation(gl.getUniformLocation(context.shader, this.uniform+'.ambient'))) {
+    if (!context.shader || !isValidUniformLocation(gl.getUniformLocation(context.shader, this.uniform + '.ambient'))) {
       return;
     }
-    gl.uniform4fv(gl.getUniformLocation(context.shader, this.uniform+'.ambient'), this.ambient);
-    gl.uniform4fv(gl.getUniformLocation(context.shader, this.uniform+'.diffuse'), this.diffuse);
-    gl.uniform4fv(gl.getUniformLocation(context.shader, this.uniform+'.specular'), this.specular);
+    gl.uniform4fv(gl.getUniformLocation(context.shader, this.uniform + '.ambient'), this.ambient);
+    gl.uniform4fv(gl.getUniformLocation(context.shader, this.uniform + '.diffuse'), this.diffuse);
+    gl.uniform4fv(gl.getUniformLocation(context.shader, this.uniform + '.specular'), this.specular);
   }
 
   setLightPosition(context) {
     const gl = context.gl;
-    if (!context.shader || !isValidUniformLocation(gl.getUniformLocation(context.shader, this.uniform+'Pos'))) {
+    if (!context.shader || !isValidUniformLocation(gl.getUniformLocation(context.shader, this.uniform + 'Pos'))) {
       return;
     }
     const position = this._worldPosition || this.position;
-    gl.uniform3f(gl.getUniformLocation(context.shader, this.uniform+'Pos'), position[0], position[1], position[2]);
+    gl.uniform3f(gl.getUniformLocation(context.shader, this.uniform + 'Pos'), position[0], position[1], position[2]);
   }
 
   computeLightPosition(context) {
     //transform with the current model view matrix
     const modelViewMatrix = mat4.multiply(mat4.create(), context.viewMatrix, context.sceneMatrix);
     const original = this.position;
-    const position =  vec4.transformMat4(vec4.create(), vec4.fromValues(original[0], original[1],original[2], 1), modelViewMatrix);
+    const position = vec4.transformMat4(vec4.create(), vec4.fromValues(original[0], original[1], original[2], 1), modelViewMatrix);
 
     this._worldPosition = position;
   }
@@ -1001,6 +995,234 @@ class LightSGNode extends TransformationSGNode {
     this.matrix = glm.translate(this.position[0], this.position[1], this.position[2]);
     //render children
     super.render(context);
+  }
+}
+
+/**
+ * Implementation of a manually controlled camera.
+ * 
+ * Movement scheme:
+ * Click & drag to rotate the camera
+ * W,A,S,D - Movement forward/left/backward/right
+ * Q,E - Movement down/up
+ * All movement is relative to the current viewing direction of the camera.
+ */
+class UserControlledCamera {
+  constructor(canvas, position) {
+    //Camera movement speed in 1000 m/s
+    this.moveSpeed = 0.05;
+    //Encapsulates camera fields for easier passing to functions
+    this.control = {
+      //Enables/disables manual control of the camera
+      enabled: false,
+      //Mouse Sensitivity for left/right
+      xSensitivity: 0.15,
+      //Mouse Sensitivity for up/down
+      ySensitivity: 0.15,
+      //Direction the camera is currently looking (angles in degrees)
+      lookingDir: { x: 0, y: 0 },
+      //Absolute position of the camera in world space
+      position: position || vec3.create(),
+      //Keys that are currently pressed
+      keysPressed: new Map([['KeyW', false], ['KeyA', false], ['KeyS', false], ['KeyD', false], ['KeyQ', false], ['KeyE', false]]),
+      //Enables/disables rotation of the camera with the mouse
+      mouseEnabled: false,
+      //Most recent position of the mouse on screen
+      mousePos: { x: -1, y: -1 }
+    };
+    this.matrix = mat4.create();
+    this.viewMatrix = mat4.create();
+
+    this.initInteraction(this.control, canvas);
+    this.update(0);
+  }
+
+  initInteraction(control, canvas) {
+    function toPos(event) {
+      //convert to local coordinates
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top
+      };
+    }
+
+    //Mouse interactions
+    window.addEventListener('mousedown', function (event) {
+      control.mouseEnabled = true;
+      control.mousePos = toPos(event);
+    });
+
+    window.addEventListener('mouseup', function (event) {
+      control.mouseEnabled = false;
+    });
+
+    canvas.addEventListener('mousemove', function (event) {
+      if (control.enabled && control.mouseEnabled) {
+        const pos = toPos(event);
+        const delta = { x: (control.mousePos.x - pos.x) * control.xSensitivity, y: (control.mousePos.y - pos.y) * control.ySensitivity };
+        control.mousePos = pos;
+
+        //Change left/right angle (clamp to (-360, 360) to prevent potential overflow glitches)
+        control.lookingDir.x += delta.x;
+        if (control.lookingDir.x < -360 || control.lookingDir.x > 360)
+          control.lookingDir.x %= 360;
+        //Change up/down angle (clamp to (-89.9, 89.9) degree to prevente bugs at +/- 90 degrees)
+        control.lookingDir.y += delta.y;
+        control.lookingDir.y = Math.min(Math.max(-89.9, control.lookingDir.y), 89.9);
+      }
+    });
+
+    //Keyboard interactions
+    document.addEventListener('keydown', function (event) {
+      if (control.enabled) {
+        control.keysPressed.set(event.code, true);
+      }
+    });
+    document.addEventListener('keyup', function (event) {
+      if (control.enabled) {
+        control.keysPressed.set(event.code, false);
+      }
+    });
+  }
+
+  /**
+   * Use update(deltaTime) to update the camera position.
+   */
+  update(deltaTimeInMilliseconds) {
+    if (this.control.enabled) {
+      //Generate matrix from view angles
+      var rotMatrix = mat4.rotateX(mat4.create(), mat4.rotateY(mat4.create(), mat4.identity(mat4.create()), glMatrix.toRadian(this.control.lookingDir.x)), -glMatrix.toRadian(this.control.lookingDir.y));
+      //Generate movement vector
+      var xMove = this.control.keysPressed.get('KeyA') ? 1 : 0 + this.control.keysPressed.get('KeyD') ? -1 : 0;
+      var yMove = this.control.keysPressed.get('KeyE') ? 1 : 0 + this.control.keysPressed.get('KeyQ') ? -1 : 0;
+      var zMove = this.control.keysPressed.get('KeyW') ? 1 : 0 + this.control.keysPressed.get('KeyS') ? -1 : 0;
+      var movement = vec3.scale(vec3.create(), vec3.normalize(vec3.create(), vec3.transformMat4(vec3.create(), vec3.fromValues(xMove, yMove, zMove), rotMatrix)), this.moveSpeed * deltaTimeInMilliseconds);
+      //Move the camera
+      this.control.position = vec3.add(vec3.create(), this.control.position, movement);
+      //Generae the lookAt centerpoint
+      var center = vec3.add(vec3.create(), vec3.transformMat4(vec3.create(), vec3.fromValues(0, 0, 1), rotMatrix), this.control.position);
+      //And finally generate our viewMatrix
+      cameraPos = this.control.position;
+      cameraCenter = center;
+      this.viewMatrix = mat4.lookAt(mat4.create(), this.control.position, center, [0, 1, 0]);
+    } else {
+      //If the camera is not controlled manually, assume it is animated and create the viewMatrix from the animation
+      var pos = vec3.transformMat4(vec3.create(), vec3.fromValues(0, 0, 0), this.matrix);
+      var target = vec3.transformMat4(vec3.create(), vec3.fromValues(0, 0, 1), this.matrix);
+      var up = vec3.transformMat4(vec3.create(), vec3.fromValues(0, 1, 0), this.matrix);
+      this.viewMatrix = mat4.lookAt(mat4.create(), pos, target, up);
+    }
+  }
+
+  /**
+   * Use render(context) to apply the camera to the context.
+   * @param {ISGContext} context The rendering context
+   */
+  render(context) {
+    context.viewMatrix = this.viewMatrix;
+  }
+}
+
+/**
+ * Animates a TransformationSGNode
+ * The animation gets an array of so-called animation segments which consist of either a 
+ * transformation matrix or a function that returns a transformation matrix and a duration.
+ * 
+ * If the segment is a matrix , the animation node interpolates between the target matrix
+ * and the previous matrix, reaching the target matrix after <duration> milliseconds. 
+ * 
+ * If the segment is a function, it will call the function with the (relative) progress to
+ * get the current matrix from that function. That is, at the beginning of the segment it will
+ * be called with 0 as parameter, at the end of the segment it will be called with 1 as parameter. 
+ * 
+ * 
+ * Example usage 1:
+ * var animation = new Animation(myTransformNode,
+ *      [{matrix: mat4.translate(mat4.create(), mat4.create(), [0, 0, 0]), duration: 0},   
+ *       {matrix: mat4.translate(mat4.create(), mat4.create(), [10, 0, 0]), duration: 1000}], 
+ *      false);
+ * animation.start();
+ *  
+ * The first segment "teleports" the object to the origin, and the second one moves it 10 units 
+ * in x-direction over the course of a second. Calling stert() then starts the animation.
+ * 
+ * 
+ * Example usage 2:
+ * var animation = new Animation(myTransformNode,
+ *      [{matrix: progress => mat4.translate(mat4.create(), mat4.create(), [10 * progress, 0, 0]), duration: 1000}], 
+ *      false);
+ * animation.start();
+ * 
+ * This does the same thing as the above example but uses a function instead of two key matrices.
+ * 
+ * 
+ * Example usage 3:
+ * var animation = new Animation(myTransformNode,
+ *      [{matrix: progress => mat4.rotateY(mat4.create(), mat4.translate(mat4.create(), mat4.create(), [10, 0, 0]), glm.deg2rad(-180 * progress)), duration: 2000},   
+ *       {matrix: mat4.translate(mat4.create(), mat4.rotateY(mat4.create(), mat4.create(), glm.deg2rad(-180)), [-10, 0, 10]), duration: 10000}], 
+ *      false);
+ * animation.start();
+ * 
+ * This example shows how the two types of segments can be freely combined to generate complex animations.
+ * The first segment in this animation uses a function to rotate the object by 180 degrees around the origin,
+ * then the second segment slowly moves it a few units along the z-axis, from where the first segment left off.
+ */
+class Animation {
+  constructor(transformNode, segments, looping) {
+    //The node that is being animated
+    this.transformNode = transformNode;
+    //The segments that form this animation
+    this.segments = segments;
+    //The last transformation matrix of the previous segment (used for interpolation)
+    this.previousSegmentMatrix = transformNode.matrix;
+    //The segment that is currently being animated
+    this.currentIndex = 0
+    this.currentSegment = segments[this.currentIndex];
+    //Whether this animation is currently running
+    this.running = false;
+    //Progress through the current segment
+    this.segmentProgress = 0;
+    //Whether this Animation loops
+    this.looping = looping || false;
+  }
+
+  start() {
+    this.running = true;
+  }
+
+  update(deltaTimeInMilliseconds) {
+    if (this.running) {
+      this.segmentProgress += deltaTimeInMilliseconds;
+      //Switch segment if appropriate
+      while (this.segmentProgress > this.currentSegment.duration) {
+        this.segmentProgress -= this.currentSegment.duration;
+        this.currentIndex++;
+        //If we reached the last segment, loop or end the animation
+        if (this.currentIndex >= this.segments.length) {
+          if (this.looping) {
+            this.currentIndex = 0;
+          } else {
+            this.running = false;
+            return;
+          }
+        }
+        //Otherwise, remember the end of the current segment as basis for the next
+        this.previousSegmentMatrix = (typeof this.currentSegment.matrix === 'function') ? this.currentSegment.matrix(1) : this.currentSegment.matrix;
+        //And switch to the next segment
+        this.currentSegment = this.segments[this.currentIndex];
+      }
+
+      //Interpolate the new matrix
+      var progressFactor = this.segmentProgress / this.currentSegment.duration;
+      var interpolatedMatrix;
+      if (typeof this.currentSegment.matrix === 'function') {
+        interpolatedMatrix = this.currentSegment.matrix(progressFactor);
+      } else {
+        interpolatedMatrix = mat4.add(mat4.create(), mat4.multiplyScalar(mat4.create(), this.currentSegment.matrix, progressFactor), mat4.multiplyScalar(mat4.create(), this.previousSegmentMatrix, 1 - progressFactor));
+      }
+      this.transformNode.matrix = interpolatedMatrix;
+    }
   }
 }
 
