@@ -197,7 +197,7 @@ class MaterialNode extends SGNode {
 class LightNode extends TransformationSGNode {
 
   constructor(position, children) {
-    super(children);
+    super(null, children);
     this.position = position || [0, 0, 0];
     this.ambient = [0, 0, 0, 1];
     this.diffuse = [1, 1, 1, 1];
