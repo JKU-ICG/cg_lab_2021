@@ -1110,7 +1110,7 @@ class UserControlledCamera {
       //If the camera is not controlled manually, assume it is animated and create the viewMatrix from the animation
       var pos = vec3.transformMat4(vec3.create(), vec3.fromValues(0, 0, 0), this.matrix);
       var target = vec3.transformMat4(vec3.create(), vec3.fromValues(0, 0, 1), this.matrix);
-      var up = vec3.transformMat4(vec3.create(), vec3.fromValues(0, 1, 0), this.matrix);
+      var up = vec4.transformMat4(vec4.create(), vec4.fromValues(0, 1, 0, 0), this.matrix);
       this.viewMatrix = mat4.lookAt(mat4.create(), pos, target, up);
     }
   }
