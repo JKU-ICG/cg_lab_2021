@@ -125,7 +125,7 @@ function init(resources) {
   var quadNode = new QuadRenderNode();
   staticColorShaderNode.append(quadNode);
 
-  createRobot(rootNode);
+  createRobot(rootNode, resources);
 
   //TASK 4-2
   //var cubeNode = new CubeRenderNode();
@@ -161,7 +161,7 @@ function initCubeBuffer() {
   gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(cubeIndices), gl.STATIC_DRAW);
 }
 
-function createRobot(rootNode) {
+function createRobot(rootNode, resources) {
 
   //TASK 6-1
 
@@ -183,8 +183,10 @@ function createRobot(rootNode) {
   robotTransformationNode.append(headTransformationNode);
 
   //head
-  cubeNode = new CubeRenderNode();
-  headTransformationNode.append(cubeNode);
+  var staticColorShaderNode = new ShaderSceneGraphNode(createProgram(gl, resources.staticcolorvs, resources.fs));
+  cubeNode = new CubeRenderNode(1.0);
+  staticColorShaderNode.append(cubeNode);
+  headTransformationNode.append(staticColorShaderNode);
 
   //transformation of left leg
   var leftLegTransformationMatrix = mat4.multiply(mat4.create(), mat4.create(), glm.translate(0.16,-0.6,0));
@@ -383,6 +385,13 @@ class QuadRenderNode extends SceneGraphNode {
  */
 class CubeRenderNode extends SceneGraphNode {
 
+  alpha;
+
+  constructor(alpha=0.5) {
+    super();
+    this.alpha = alpha;
+  }
+
   render(context) {
 
     //setting the model view and projection for the shader
@@ -402,7 +411,7 @@ class CubeRenderNode extends SceneGraphNode {
 
     //set alpha value for blending
     //TASK 1-3
-    gl.uniform1f(gl.getUniformLocation(context.shader, 'u_alpha'), 0.5);
+    gl.uniform1f(gl.getUniformLocation(context.shader, 'u_alpha'), this.alpha);
 
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeIndexBuffer);
     gl.drawElements(gl.TRIANGLES, cubeIndices.length, gl.UNSIGNED_SHORT, 0);
